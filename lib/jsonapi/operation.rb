@@ -17,6 +17,7 @@ module JSONAPI
     end
 
     private
+
     def processor
       JSONAPI::Processor.processor_instance_for(resource_klass, operation_type, options)
     end

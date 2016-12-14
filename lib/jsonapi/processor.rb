@@ -15,7 +15,8 @@ module JSONAPI
                                        :replace_to_many_relationships,
                                        :remove_to_many_relationships,
                                        :remove_to_one_relationship,
-                                       :operation
+                                       :operation,
+                                       :custom_actions
 
     class << self
       def processor_instance_for(resource_klass, operation_type, params)
@@ -323,6 +324,14 @@ module JSONAPI
       result = resource.remove_to_one_link(relationship_type)
 
       return JSONAPI::OperationResult.new(result == :completed ? :no_content : :accepted)
+    end
+
+    def custom_actions
+      if params[:resource].is_a?(Resource)
+        return JSONAPI::ResourceOperationResult.new(:ok, params[:resource])
+      else
+        return JSONAPI::OperationResult.new(:no_content)
+      end
     end
   end
 end

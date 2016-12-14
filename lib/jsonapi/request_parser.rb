@@ -112,6 +112,10 @@ module JSONAPI
       parse_modify_relationship_action(params, :remove)
     end
 
+    def setup_custom_actions_action(params)
+      add_custom_actions_operation
+    end
+
     def parse_modify_relationship_action(params, modification_type)
       relationship_type = params.require(:relationship)
       parent_key = params.require(@resource_klass._as_parent_key)
@@ -300,6 +304,19 @@ module JSONAPI
         @errors.concat(JSONAPI::Exceptions::InvalidSortCriteria
                          .new(format_key(resource_klass._type), sort_field).errors)
       end
+    end
+
+    def add_custom_actions_operation
+      action_data = params.require(:action_data)
+      parent_resource_id = params.require(@resource_klass._as_parent_key)
+      parent_resource = @resource_klass.find_by_key(parent_resource_id, context: @context)
+      data = params[:data] ? params[:data].deep_transform_keys { |key| unformat_key(key) } : {}
+
+      result = resolve_custom_action(parent_resource, action_data, data)
+
+      @operations.push JSONAPI::Operation.new(:custom_actions, result.class || @resource_klass,
+        resource: result
+      )
     end
 
     def add_find_operation
@@ -673,6 +690,30 @@ module JSONAPI
     def unformat_key(key)
       unformatted_key = @key_formatter.unformat(key)
       unformatted_key.nil? ? nil : unformatted_key.to_sym
+    end
+
+    private
+
+    def resolve_custom_action(resource, action_data, data)
+      result = resource.call_custom_action(action_data, data)
+
+      if result && result.try(:errors).present?
+        attribute, value = result.errors.first
+        raise JSONAPI::Exceptions::InvalidFieldValue.new(attribute, value)
+      end
+
+      result_resource(result, resource.class)
+    end
+
+    def result_resource(result, parent_klass)
+      result_klass = parent_klass.resource_for_model(result, false) || parent_klass
+      all_includes = params[:include] ? params[:include] : result_klass.includable_relationship_names.map { |key| format_key(key) }.join(',')
+      parse_include_directives(all_includes)
+
+      result_klass.find_by_key(result.id,
+        context: @context,
+        include_directives: @include_directives
+      )
     end
   end
 end
