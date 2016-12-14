@@ -60,6 +60,10 @@ module JSONAPI
       process_request
     end
 
+    def custom_actions
+      process_request
+    end
+
     def process_request
       return unless verify_accept_header
 
