@@ -18,7 +18,8 @@ module JSONAPI
                                        :replace_polymorphic_to_one_link,
                                        :remove_to_many_link,
                                        :remove_to_one_link,
-                                       :replace_fields
+                                       :replace_fields,
+                                       :custom_actions
 
     def initialize(model, context)
       @model = model
@@ -174,6 +175,21 @@ module JSONAPI
       @preloaded_fragments ||= Hash.new
     end
 
+    def call_custom_action(action_data, data)
+      result = nil
+      method_name = action_data[:method]
+      @custom_action_name = action_data[:name]
+
+      run_callbacks :custom_actions do
+        run_callbacks "#{method_name}_action" do
+          result = _call_custom_action(method_name, data)
+        end
+      end
+
+      @custom_action_name = nil
+      result
+    end
+
     private
 
     def save
@@ -229,6 +245,21 @@ module JSONAPI
 
     rescue ActiveRecord::DeleteRestrictionError => e
       fail JSONAPI::Exceptions::RecordLocked.new(e.message)
+    end
+
+    def _call_custom_action(method, data)
+      payload = data || ActionController::Parameters.new
+      custom_action = self.class._custom_actions[method]
+
+      begin
+        if custom_action[:apply]
+          custom_action[:apply].call(@model, context, payload)
+        else
+          send(custom_action[:method], payload)
+        end
+      rescue
+        raise(JSONAPI::Exceptions::CustomActionError, custom_action)
+      end
     end
 
     def reflect_relationship?(relationship, options)
@@ -409,6 +440,7 @@ module JSONAPI
         subclass.abstract(false)
         subclass.immutable(false)
         subclass.caching(false)
+        subclass._custom_actions = (_custom_actions || {}).dup
         subclass._attributes = (_attributes || {}).dup
         subclass._model_hints = (_model_hints || {}).dup
 
@@ -432,20 +464,20 @@ module JSONAPI
         check_reserved_resource_name(subclass._type, subclass.name)
       end
 
-      def resource_for(type)
+      def resource_for(type, fail_on_nil = true)
         type = type.underscore
         type_with_module = type.include?('/') ? type : module_path + type
 
         resource_name = _resource_name_from_type(type_with_module)
         resource = resource_name.safe_constantize if resource_name
-        if resource.nil?
+        if resource.nil? && fail_on_nil
           fail NameError, "JSONAPI: Could not find resource '#{type}'. (Class #{resource_name} not found)"
         end
         resource
       end
 
-      def resource_for_model(model)
-        resource_for(resource_type_for(model))
+      def resource_for_model(model, fail_on_nil = true)
+        resource_for(resource_type_for(model), fail_on_nil)
       end
 
       def _resource_name_from_type(type)
@@ -466,8 +498,7 @@ module JSONAPI
         resource = resource_for(type_class_name)
         resource ? resource._model_name.to_s : type_class_name
       end
-
-      attr_accessor :_attributes, :_relationships, :_type, :_model_hints
+      attr_accessor :_attributes, :_relationships, :_type, :_model_hints, :_custom_actions
       attr_writer :_allowed_filters, :_paginator
 
       def create(context)
@@ -516,6 +547,20 @@ module JSONAPI
 
       def default_attribute_options
         { format: :default }
+      end
+
+      def custom_action(name, options)
+        @_custom_actions ||= {}
+        method = options[:method] || name
+
+        @_custom_actions[method] = {
+          name: name,
+          type: options[:type] || :get,
+          apply: options[:apply],
+          method: method
+        }
+
+        define_jsonapi_resources_callbacks "#{method}_action"
       end
 
       def relationship(*attrs)
@@ -595,6 +640,10 @@ module JSONAPI
 
       def fields
         _relationships.keys | _attributes.keys
+      end
+
+      def includable_relationship_names
+        _relationships.keys.map { |key| key.to_s }
       end
 
       def resolve_relationship_names_to_relations(resource_klass, model_includes, options = {})

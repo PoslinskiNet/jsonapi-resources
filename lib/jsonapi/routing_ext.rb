@@ -240,6 +240,15 @@ module ActionDispatch
                                                   action: 'get_related_resources', via: [:get]
         end
 
+        def jsonapi_custom_actions(_options = {})
+          resource = JSONAPI::Resource.resource_for(resource_type_with_module_prefix(@resource_type))
+
+          resource._custom_actions.each_value do |data|
+            path = data[:name].to_s.dasherize
+            match path, to: "#{@resource_type}#custom_actions", via: [data[:type]], action_data: data
+          end
+        end
+
         protected
         # :nocov:
         def jsonapi_resource_scope(resource, resource_type) #:nodoc:
