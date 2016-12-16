@@ -12,6 +12,8 @@ module JSONAPI
       base.define_jsonapi_resources_callbacks :process_operations
     end
 
+    attr_reader :results
+
     def index
       process_request
     end
@@ -78,7 +80,7 @@ module JSONAPI
         unless JSONAPI.configuration.resource_cache.nil?
           operations.each {|op| op.options[:cache_serializer] = resource_serializer }
         end
-        results = process_operations(operations)
+        @results = process_operations(operations)
         render_results(results)
       end
     rescue => e
