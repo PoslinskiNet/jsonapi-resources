@@ -695,7 +695,7 @@ module JSONAPI
     private
 
     def resolve_custom_action(resource, action_data, data)
-      result = resource.call_custom_action(action_data, data)
+      result = resource.call_custom_action(action_data[:method], data)
 
       if result && result.try(:errors).present?
         attribute, value = result.errors.first
