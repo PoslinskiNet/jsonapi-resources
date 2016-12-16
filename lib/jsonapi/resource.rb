@@ -175,18 +175,20 @@ module JSONAPI
       @preloaded_fragments ||= Hash.new
     end
 
-    def call_custom_action(action_data, data)
+    def call_custom_action(name, data = nil)
       result = nil
-      method_name = action_data[:method]
-      @custom_action_name = action_data[:name]
+      custom_action = self.class._custom_actions[name]
+      return result unless custom_action
+
+      @custom_action = custom_action
 
       run_callbacks :custom_actions do
-        run_callbacks "#{method_name}_action" do
-          result = _call_custom_action(method_name, data)
+        run_callbacks "#{name}_action" do
+          result = _call_custom_action(custom_action, ActionController::Parameters.new(data))
         end
       end
 
-      @custom_action_name = nil
+      @custom_action = nil
       result
     end
 
@@ -247,18 +249,15 @@ module JSONAPI
       fail JSONAPI::Exceptions::RecordLocked.new(e.message)
     end
 
-    def _call_custom_action(method, data)
-      payload = data || ActionController::Parameters.new
-      custom_action = self.class._custom_actions[method]
-
+    def _call_custom_action(custom_action, data)
       begin
         if custom_action[:apply]
-          custom_action[:apply].call(@model, context, payload)
+          custom_action[:apply].call(@model, context, data)
         else
-          send(custom_action[:method], payload)
+          send(custom_action[:method], data)
         end
       rescue
-        raise(JSONAPI::Exceptions::CustomActionError, custom_action)
+        fail JSONAPI::Exceptions::CustomActionError.new(custom_action)
       end
     end
 
@@ -549,18 +548,16 @@ module JSONAPI
         { format: :default }
       end
 
-      def custom_action(name, options)
+      def custom_action(name, options = {})
         @_custom_actions ||= {}
-        method = options[:method] || name
-
-        @_custom_actions[method] = {
+        @_custom_actions[name] = {
           name: name,
           type: options[:type] || :get,
           apply: options[:apply],
-          method: method
+          method: options[:method] || name
         }
 
-        define_jsonapi_resources_callbacks "#{method}_action"
+        define_jsonapi_resources_callbacks "#{name}_action"
       end
 
       def relationship(*attrs)
