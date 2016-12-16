@@ -256,8 +256,6 @@ module JSONAPI
         else
           send(custom_action[:method], data)
         end
-      rescue
-        fail JSONAPI::Exceptions::CustomActionError.new(custom_action)
       end
     end
 

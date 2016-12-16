@@ -81,6 +81,3 @@ en:
       invalid_page_value:
         title: 'Invalid page value'
         detail: "%{value} is not a valid value for %{page} page parameter."
-      custom_action_error:
-        title: 'The custom action has been failed'
-        detail: "The custom action named '%{name}' has been failed on method '%{method}'."
