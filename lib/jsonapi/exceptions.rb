@@ -559,25 +559,5 @@ module JSONAPI
                                                     value: value, page: page))]
       end
     end
-
-    class CustomActionError < Error
-      attr_accessor :name, :method
-
-      def initialize(action_data, error_object_overrides = {})
-        @name = action_data[:name]
-        @method = action_data[:method]
-        super(error_object_overrides)
-      end
-
-      def errors
-        [create_error_object(code: JSONAPI::CUSTOM_ACTION_ERROR,
-                            status: :forbidden,
-                            title: I18n.translate('jsonapi-resources.exceptions.custom_action_error.title',
-                                                  default: 'The custom action has been failed'),
-                            detail: I18n.translate('jsonapi-resources.exceptions.custom_action_error.detail',
-                                                   default: "The custom action named '#{name}' has been failed on method '#{method}'.",
-                                                   name: name, method: method))]
-      end
-    end
   end
 end
