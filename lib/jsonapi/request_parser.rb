@@ -706,12 +706,16 @@ module JSONAPI
     end
 
     def result_resource(result, parent_klass)
-      result_klass = parent_klass.resource_for_model(result, false) || parent_klass
-      all_includes = params[:include] ? params[:include] : result_klass.includable_relationship_names.map { |key| format_key(key) }.join(',')
+      @resource_klass = parent_klass.resource_for_model(result, false) || parent_klass
+      all_includes = params[:include] ? params[:include] : @resource_klass.includable_relationship_names.map { |key| format_key(key) }.join(',')
       parse_include_directives(all_includes)
 
-      result_klass.find_by_key(result.id,
+      parse_fields(params[:fields])
+      parse_include_directives(all_includes)
+
+      @resource_klass.find_by_key(result.id,
         context: @context,
+        fields: @fields,
         include_directives: @include_directives
       )
     end
