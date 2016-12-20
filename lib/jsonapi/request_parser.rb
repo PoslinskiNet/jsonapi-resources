@@ -702,22 +702,27 @@ module JSONAPI
         raise JSONAPI::Exceptions::InvalidFieldValue.new(attribute, value)
       end
 
-      result_resource(result, resource.class)
+      result_resource(result, resource)
     end
 
-    def result_resource(result, parent_klass)
-      @resource_klass = parent_klass.resource_for_model(result, false) || parent_klass
-      all_includes = params[:include] ? params[:include] : @resource_klass.includable_relationship_names.map { |key| format_key(key) }.join(',')
-      parse_include_directives(all_includes)
+    def result_resource(result, parent)
+      result_klass = parent.class.resource_for_model(result, false)
+      @resource_klass = result_klass if result_klass
 
+      all_includes = params[:include] ? params[:include] : includable_string
+      parse_include_directives(all_includes)
       parse_fields(params[:fields])
-      parse_include_directives(all_includes)
 
-      @resource_klass.find_by_key(result.id,
+      resource = result_klass ? result : parent
+      @resource_klass.find_by_key(resource.id,
         context: @context,
         fields: @fields,
         include_directives: @include_directives
       )
+    end
+
+    def includable_string
+      @resource_klass.includable_relationship_names.map { |key| format_key(key) }.join(',')
     end
   end
 end
