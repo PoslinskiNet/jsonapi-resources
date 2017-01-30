@@ -25,7 +25,7 @@ ActiveRecord::Schema.define do
   end
 
   create_table :posts, force: true do |t|
-    t.string     :title
+    t.string     :title, length: 255
     t.text       :body
     t.integer    :author_id
     t.integer    :parent_post_id
@@ -677,15 +677,6 @@ class PostsController < BaseController
     head :forbidden
   end
 
-  def handle_exceptions(e)
-    case e
-      when PostsController::SpecialError
-        raise e
-      else
-        super(e)
-    end
-  end
-
   #called by test_on_server_error
   def self.set_callback_message(error)
     @callback_message = "Sent from method"
@@ -1014,6 +1005,7 @@ class CompanyResource < JSONAPI::Resource
 end
 
 class FirmResource < CompanyResource
+  model_name "Firm"
 end
 
 class TagResource < JSONAPI::Resource
@@ -1119,7 +1111,7 @@ class PostResource < JSONAPI::Resource
   end
 
   def self.creatable_fields(context)
-    super(context) - [:subject, :id]
+    super(context) - [:subject]
   end
 
   def self.sortable_fields(context)
@@ -1140,6 +1132,7 @@ end
 
 class IsoCurrencyResource < JSONAPI::Resource
   attributes :name, :country_name, :minor_unit
+  attribute :id, format: :id, readonly: false
 
   filter :country_name
 
