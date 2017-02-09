@@ -552,7 +552,8 @@ module JSONAPI
           name: name,
           type: options[:type] || :get,
           apply: options[:apply],
-          method: options[:method] || name
+          method: options[:method] || name,
+          includes: options[:includes] || false
         }
 
         define_jsonapi_resources_callbacks "#{name}_action"

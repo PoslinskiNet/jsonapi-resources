@@ -311,7 +311,6 @@ module JSONAPI
       parent_resource_id = params.require(@resource_klass._as_parent_key)
       parent_resource = @resource_klass.find_by_key(parent_resource_id, context: @context)
       data = params[:data] ? params[:data].deep_transform_keys { |key| unformat_key(key) } : {}
-
       result = resolve_custom_action(parent_resource, action_data, data)
 
       @operations.push JSONAPI::Operation.new(:custom_actions, result.class || @resource_klass,
@@ -702,14 +701,21 @@ module JSONAPI
         raise JSONAPI::Exceptions::InvalidFieldValue.new(attribute, value)
       end
 
-      result_resource(result, resource)
+      result_resource(result, resource, action_data[:includes])
     end
 
-    def result_resource(result, parent)
+    def result_resource(result, parent, includes = false)
       result_klass = parent.class.resource_for_model(result, false)
       @resource_klass = result_klass if result_klass
 
-      all_includes = params[:include] ? params[:include] : includable_string
+      all_includes = if params[:include]
+        params[:include]
+      elsif(includes === true)
+        includable_string
+      elsif(includes.is_a?(String))
+        includes
+      end
+
       parse_include_directives(all_includes)
       parse_fields(params[:fields])
 
